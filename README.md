@@ -107,3 +107,6 @@ pytest tests/
 - **Ports and Adapters**: Interface-first design for flexibility and testability
 - **Immutable Models**: Domain entities are immutable to prevent accidental state changes
 - **Comprehensive Testing**: Unit tests for all layers with architectural validation
+
+---
+*Repository updated on 2025-10-27*
