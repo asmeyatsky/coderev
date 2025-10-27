@@ -41,6 +41,14 @@ def create_app():
     def health_check():
         return {'status': 'healthy', 'service': 'ECRP API'}, 200
     
+    # Serve the UI
+    @app.route('/')
+    def index():
+        from flask import send_file
+        import os
+        ui_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'presentation', 'ui', 'index.html')
+        return send_file(ui_path)
+    
     return app
 
 

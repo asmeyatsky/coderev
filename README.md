@@ -59,36 +59,43 @@ The presentation layer handles user interaction:
 ### Installation
 
 1. Clone the repository
-2. Navigate to the project directory
-3. Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
+2. Navigate to the project root directory
+3. Create a virtual environment (recommended):
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+4. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   # or if using the setup.py:
+   pip install -e .
+   ```
 
 ### Running the Application
 
-1. Navigate to the presentation directory:
+1. From the project root directory, run the Flask application:
+   ```bash
+   python -m presentation.main
+   ```
+   or
+   ```bash
+   cd presentation && python main.py
+   ```
 
-```bash
-cd presentation
-```
-
-2. Run the Flask application:
-
-```bash
-python main.py
-```
-
-3. Access the API at `http://localhost:5000`
-4. Access the UI at `http://localhost:5000/ui/index.html` (after setting up static file serving)
+2. The API will be available at `http://localhost:5000`
+3. The UI is available at `http://localhost:5000/` (the main page serves the HTML file)
 
 ### Running Tests
 
-Run tests using pytest:
-
+First, install the testing dependencies:
 ```bash
-pytest tests/
+pip install pytest
+```
+
+Then run tests:
+```bash
+python -m pytest tests/
 ```
 
 ## API Endpoints
