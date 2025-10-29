@@ -39,7 +39,8 @@ def create_app():
     # Health check endpoint
     @app.route('/health', methods=['GET'])
     def health_check():
-        return {'status': 'healthy', 'service': 'ECRP API'}, 200
+        from flask import jsonify
+        return jsonify({'status': 'healthy', 'service': 'ECRP API'}), 200
     
     # Serve the UI
     @app.route('/')

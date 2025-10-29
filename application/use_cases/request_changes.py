@@ -19,11 +19,12 @@ from abc import ABC, abstractmethod
 from typing import Protocol
 from datetime import datetime
 
-from ..dtos.dtos import CodeReviewDTO
-from ...domain.ports.repository_ports import CodeReviewRepositoryPort, UserRepositoryPort
-from ...domain.entities.code_review import CodeReview, ReviewStatus
-from ...domain.entities.user import User
-from ...domain.services.review_service import ReviewDomainService
+# Using absolute imports since the sys.path is modified in the presentation layer
+from domain.ports.repository_ports import CodeReviewRepositoryPort, UserRepositoryPort
+from domain.entities.code_review import CodeReview, ReviewStatus
+from domain.entities.user import User
+from domain.services.review_service import ReviewDomainService
+from application.dtos.dtos import CodeReviewDTO
 
 
 class RequestChangesUseCase(Protocol):

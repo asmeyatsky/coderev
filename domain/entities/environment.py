@@ -14,7 +14,7 @@ Key Design Decisions:
 4. Environment resources are properly isolated per PR
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Optional
@@ -45,8 +45,8 @@ class Environment:
     
     id: str
     code_review_id: str
-    created_at: datetime = datetime.now()
-    updated_at: datetime = datetime.now()
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
     
     # Environment properties
     name: Optional[str] = None
@@ -88,24 +88,11 @@ class Environment:
         """Transition environment to running state"""
         if self.status not in [EnvironmentStatus.PENDING, EnvironmentStatus.CREATING]:
             raise ValueError(f"Cannot start environment in status {self.status.value}")
-        
-        return Environment(
-            id=self.id,
-            code_review_id=self.code_review_id,
-            created_at=self.created_at,
-            updated_at=datetime.now(),
-            name=self.name,
-            description=self.description,
+
+        return replace(
+            self,
             status=EnvironmentStatus.RUNNING,
-            ttl_minutes=self.ttl_minutes,
-            url=self.url,
-            ssh_access_url=self.ssh_access_url,
-            api_access_token=self.api_access_token,
-            branch=self.branch,
-            commit_hash=self.commit_hash,
-            services=self.services,
-            resources=self.resources,
-            expires_at=self.expires_at,
+            updated_at=datetime.now(),
             last_accessed_at=datetime.now()
         )
     
@@ -113,73 +100,19 @@ class Environment:
         """Transition environment to stopped state"""
         if self.status != EnvironmentStatus.RUNNING:
             raise ValueError(f"Cannot stop environment in status {self.status.value}")
-        
-        return Environment(
-            id=self.id,
-            code_review_id=self.code_review_id,
-            created_at=self.created_at,
-            updated_at=datetime.now(),
-            name=self.name,
-            description=self.description,
-            status=EnvironmentStatus.STOPPED,
-            ttl_minutes=self.ttl_minutes,
-            url=self.url,
-            ssh_access_url=self.ssh_access_url,
-            api_access_token=self.api_access_token,
-            branch=self.branch,
-            commit_hash=self.commit_hash,
-            services=self.services,
-            resources=self.resources,
-            expires_at=self.expires_at,
-            last_accessed_at=self.last_accessed_at
-        )
+
+        return replace(self, status=EnvironmentStatus.STOPPED, updated_at=datetime.now())
     
     def destroy(self) -> 'Environment':
         """Transition environment to destroyed state"""
         if self.status == EnvironmentStatus.DESTROYED:
             raise ValueError("Environment is already destroyed")
-        
-        return Environment(
-            id=self.id,
-            code_review_id=self.code_review_id,
-            created_at=self.created_at,
-            updated_at=datetime.now(),
-            name=self.name,
-            description=self.description,
-            status=EnvironmentStatus.DESTROYED,
-            ttl_minutes=self.ttl_minutes,
-            url=self.url,
-            ssh_access_url=self.ssh_access_url,
-            api_access_token=self.api_access_token,
-            branch=self.branch,
-            commit_hash=self.commit_hash,
-            services=self.services,
-            resources=self.resources,
-            expires_at=self.expires_at,
-            last_accessed_at=self.last_accessed_at
-        )
+
+        return replace(self, status=EnvironmentStatus.DESTROYED, updated_at=datetime.now())
     
     def mark_accessed(self) -> 'Environment':
         """Update the last accessed time"""
-        return Environment(
-            id=self.id,
-            code_review_id=self.code_review_id,
-            created_at=self.created_at,
-            updated_at=datetime.now(),
-            name=self.name,
-            description=self.description,
-            status=self.status,
-            ttl_minutes=self.ttl_minutes,
-            url=self.url,
-            ssh_access_url=self.ssh_access_url,
-            api_access_token=self.api_access_token,
-            branch=self.branch,
-            commit_hash=self.commit_hash,
-            services=self.services,
-            resources=self.resources,
-            expires_at=self.expires_at,
-            last_accessed_at=datetime.now()
-        )
+        return replace(self, last_accessed_at=datetime.now(), updated_at=datetime.now())
     
     def is_expired(self) -> bool:
         """Check if the environment has expired"""

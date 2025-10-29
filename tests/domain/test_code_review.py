@@ -7,8 +7,8 @@ Validating business rules, invariants, and behavior of the CodeReview entity.
 
 import pytest
 from datetime import datetime
-from ecrp.domain.entities.code_review import CodeReview, ReviewStatus, ReviewPriority
-from ecrp.domain.entities.user import User, UserRole
+from domain.entities.code_review import CodeReview, ReviewStatus, ReviewPriority
+from domain.entities.user import User, UserRole
 
 
 class TestCodeReview:

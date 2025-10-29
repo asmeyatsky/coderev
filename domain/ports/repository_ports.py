@@ -21,6 +21,7 @@ from ..entities.code_review import CodeReview
 from ..entities.comment import Comment
 from ..entities.risk_score import RiskScore
 from ..entities.environment import Environment
+from ..entities.audit_log import AuditLog
 
 
 class UserRepositoryPort(ABC):
@@ -165,4 +166,38 @@ class EnvironmentRepositoryPort(ABC):
     @abstractmethod
     def find_expired(self) -> List[Environment]:
         """Find all expired environments"""
+        pass
+
+
+class AuditLogRepositoryPort(ABC):
+    """Port for audit log-related data operations"""
+
+    @abstractmethod
+    def save(self, audit_log: AuditLog) -> AuditLog:
+        """Save an audit log to the repository"""
+        pass
+
+    @abstractmethod
+    def find_by_id(self, audit_log_id: str) -> Optional[AuditLog]:
+        """Find an audit log by ID"""
+        pass
+
+    @abstractmethod
+    def find_by_entity(self, entity_type: str, entity_id: str) -> List[AuditLog]:
+        """Find all audit logs for a specific entity"""
+        pass
+
+    @abstractmethod
+    def find_by_actor(self, actor_id: str) -> List[AuditLog]:
+        """Find all audit logs by a specific actor"""
+        pass
+
+    @abstractmethod
+    def find_all(self) -> List[AuditLog]:
+        """Find all audit logs"""
+        pass
+
+    @abstractmethod
+    def find_by_code_review(self, code_review_id: str) -> List[AuditLog]:
+        """Find all audit logs related to a code review"""
         pass

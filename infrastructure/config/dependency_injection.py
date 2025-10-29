@@ -14,18 +14,14 @@ Key Design Decisions:
 4. Follow the dependency inversion principle
 """
 
-import sys
-import os
-# Add the project root to the Python path to enable imports
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, project_root)
-
+# Using absolute imports since the sys.path is modified in the presentation layer
 from infrastructure.repositories.in_memory_repositories import (
     InMemoryUserRepository,
     InMemoryCodeReviewRepository,
     InMemoryCommentRepository,
     InMemoryRiskScoreRepository,
-    InMemoryEnvironmentRepository
+    InMemoryEnvironmentRepository,
+    InMemoryAuditLogRepository
 )
 from infrastructure.adapters.external_service_adapters import (
     MockRiskAnalysisServiceAdapter,
@@ -34,6 +30,7 @@ from infrastructure.adapters.external_service_adapters import (
     MockGitProviderServiceAdapter
 )
 from domain.services.review_service import ReviewDomainService
+from domain.services.sla_service import SLAService
 from application.use_cases.create_code_review import CreateCodeReviewUseCaseImpl
 from application.use_cases.approve_code_review import ApproveCodeReviewUseCaseImpl
 from application.use_cases.create_comment import CreateCommentUseCaseImpl
@@ -51,6 +48,7 @@ class DependencyContainer:
         self.comment_repository = InMemoryCommentRepository()
         self.risk_score_repository = InMemoryRiskScoreRepository()
         self.environment_repository = InMemoryEnvironmentRepository()
+        self.audit_log_repository = InMemoryAuditLogRepository()
         
         # External service adapters
         self.risk_analysis_service = MockRiskAnalysisServiceAdapter()
@@ -60,6 +58,7 @@ class DependencyContainer:
         
         # Domain services
         self.review_service = ReviewDomainService()
+        self.sla_service = SLAService()
         
         # Use cases
         self.create_code_review_use_case = CreateCodeReviewUseCaseImpl(

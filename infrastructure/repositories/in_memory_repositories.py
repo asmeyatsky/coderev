@@ -16,18 +16,20 @@ Key Design Decisions:
 
 from typing import List, Optional, Dict
 from threading import Lock
-from ...domain.ports.repository_ports import (
+from domain.ports.repository_ports import (
     UserRepositoryPort,
     CodeReviewRepositoryPort,
     CommentRepositoryPort,
     RiskScoreRepositoryPort,
-    EnvironmentRepositoryPort
+    EnvironmentRepositoryPort,
+    AuditLogRepositoryPort
 )
-from ...domain.entities.user import User
-from ...domain.entities.code_review import CodeReview
-from ...domain.entities.comment import Comment
-from ...domain.entities.risk_score import RiskScore
-from ...domain.entities.environment import Environment
+from domain.entities.user import User
+from domain.entities.code_review import CodeReview, ReviewPriority
+from domain.entities.comment import Comment
+from domain.entities.risk_score import RiskScore
+from domain.entities.environment import Environment, EnvironmentStatus
+from domain.entities.audit_log import AuditLog
 
 
 class InMemoryUserRepository(UserRepositoryPort):
@@ -110,6 +112,91 @@ class InMemoryCodeReviewRepository(CodeReviewRepositoryPort):
     def find_all(self) -> List[CodeReview]:
         with self._lock:
             return list(self._code_reviews.values())
+
+    def find_with_filters(
+        self,
+        status = None,
+        priority = None,
+        requester_id: Optional[str] = None,
+        reviewer_id: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 20,
+        sort_by: str = "created_at",
+        sort_order: str = "desc"
+    ) -> tuple:
+        """
+        Find reviews with filtering, sorting, and pagination
+
+        Args:
+            status: Filter by ReviewStatus enum
+            priority: Filter by ReviewPriority enum
+            requester_id: Filter by requester ID
+            reviewer_id: Filter by reviewer ID
+            skip: Number of items to skip (offset)
+            limit: Number of items to return
+            sort_by: Field to sort by (created_at, risk_score, priority)
+            sort_order: Sort order (asc, desc)
+
+        Returns:
+            Tuple of (filtered_reviews, total_count)
+        """
+        with self._lock:
+            results = list(self._code_reviews.values())
+
+            # Apply filters
+            if status:
+                results = [r for r in results if r.status == status]
+            if priority:
+                results = [r for r in results if r.priority == priority]
+            if requester_id:
+                results = [r for r in results if r.requester.id == requester_id]
+            if reviewer_id:
+                results = [r for r in results if reviewer_id in r.reviewers]
+
+            # Sort
+            reverse = sort_order.lower() == "desc"
+            if sort_by == "created_at":
+                results.sort(key=lambda r: r.created_at, reverse=reverse)
+            elif sort_by == "risk_score":
+                results.sort(key=lambda r: r.risk_score or 0, reverse=reverse)
+            elif sort_by == "priority":
+                priority_order = {
+                    ReviewPriority.LOW: 0,
+                    ReviewPriority.MEDIUM: 1,
+                    ReviewPriority.HIGH: 2,
+                    ReviewPriority.CRITICAL: 3
+                }
+                results.sort(
+                    key=lambda r: priority_order.get(r.priority, 0),
+                    reverse=reverse
+                )
+
+            total = len(results)
+
+            # Paginate
+            paginated = results[skip:skip + limit]
+            return paginated, total
+
+    def search_by_text(self, query: str) -> List[CodeReview]:
+        """
+        Search reviews by title, description, or branch names
+
+        Args:
+            query: Search query string
+
+        Returns:
+            List of matching code reviews
+        """
+        with self._lock:
+            query_lower = query.lower()
+            results = []
+            for review in self._code_reviews.values():
+                if (query_lower in review.title.lower() or
+                    query_lower in review.description.lower() or
+                    query_lower in review.source_branch.lower() or
+                    query_lower in review.target_branch.lower()):
+                    results.append(review)
+            return results
 
 
 class InMemoryCommentRepository(CommentRepositoryPort):
@@ -210,7 +297,6 @@ class InMemoryEnvironmentRepository(EnvironmentRepositoryPort):
     
     def find_all_running(self) -> List[Environment]:
         with self._lock:
-            from ...domain.entities.environment import EnvironmentStatus
             result = []
             for environment in self._environments.values():
                 if environment.status == EnvironmentStatus.RUNNING:
@@ -224,3 +310,54 @@ class InMemoryEnvironmentRepository(EnvironmentRepositoryPort):
                 if environment.is_expired():
                     result.append(environment)
             return result
+
+
+class InMemoryAuditLogRepository(AuditLogRepositoryPort):
+    """In-memory implementation of AuditLogRepositoryPort"""
+
+    def __init__(self):
+        self._audit_logs: Dict[str, AuditLog] = {}
+        self._lock = Lock()
+
+    def save(self, audit_log: AuditLog) -> AuditLog:
+        """Save an audit log to the repository"""
+        with self._lock:
+            self._audit_logs[audit_log.id] = audit_log
+            return audit_log
+
+    def find_by_id(self, audit_log_id: str) -> Optional[AuditLog]:
+        """Find an audit log by ID"""
+        with self._lock:
+            return self._audit_logs.get(audit_log_id)
+
+    def find_by_entity(self, entity_type: str, entity_id: str) -> List[AuditLog]:
+        """Find all audit logs for a specific entity"""
+        with self._lock:
+            result = []
+            for log in self._audit_logs.values():
+                if log.entity_type == entity_type and log.entity_id == entity_id:
+                    result.append(log)
+            return sorted(result, key=lambda x: x.created_at, reverse=True)
+
+    def find_by_actor(self, actor_id: str) -> List[AuditLog]:
+        """Find all audit logs by a specific actor"""
+        with self._lock:
+            result = []
+            for log in self._audit_logs.values():
+                if log.actor_id == actor_id:
+                    result.append(log)
+            return sorted(result, key=lambda x: x.created_at, reverse=True)
+
+    def find_all(self) -> List[AuditLog]:
+        """Find all audit logs"""
+        with self._lock:
+            return sorted(self._audit_logs.values(), key=lambda x: x.created_at, reverse=True)
+
+    def find_by_code_review(self, code_review_id: str) -> List[AuditLog]:
+        """Find all audit logs related to a code review"""
+        with self._lock:
+            result = []
+            for log in self._audit_logs.values():
+                if log.entity_type == "CodeReview" and log.entity_id == code_review_id:
+                    result.append(log)
+            return sorted(result, key=lambda x: x.created_at, reverse=True)

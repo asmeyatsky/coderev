@@ -20,12 +20,13 @@ from abc import ABC, abstractmethod
 from typing import Protocol
 from datetime import datetime
 
-from ..dtos.dtos import CodeReviewDTO
-from ...domain.ports.repository_ports import CodeReviewRepositoryPort, UserRepositoryPort
-from ...domain.ports.external_service_ports import GitProviderServicePort
-from ...domain.entities.code_review import CodeReview, ReviewStatus
-from ...domain.entities.user import User
-from ...domain.services.review_service import ReviewDomainService
+# Using absolute imports since the sys.path is modified in the presentation layer
+from domain.ports.repository_ports import CodeReviewRepositoryPort, UserRepositoryPort
+from domain.ports.external_service_ports import GitProviderServicePort
+from domain.entities.code_review import CodeReview, ReviewStatus
+from domain.entities.user import User, UserRole
+from domain.services.review_service import ReviewDomainService
+from application.dtos.dtos import CodeReviewDTO, ReviewStatusDTO, ReviewPriorityDTO
 
 
 class MergeCodeReviewUseCase(Protocol):
@@ -67,9 +68,31 @@ class MergeCodeReviewUseCaseImpl:
         # Check if the code review can be merged according to business rules
         if not code_review.can_merge():
             raise ValueError(f"Code review {code_review_id} does not meet requirements for merging")
-        
-        # In a real implementation, we would also check if the merger has permission to merge
-        # For now, we'll assume anyone can merge if the conditions are met
+
+        # Check if the merger has permission to merge
+        # Typically only the requester, admins, or merge maintainers can merge
+        if merger.id != code_review.requester.id and UserRole.ADMIN not in merger.roles:
+            raise PermissionError(f"User {merger_id} does not have permission to merge this review")
+
+        # If security approval was required, verify it was obtained
+        if code_review.security_approval_required:
+            has_security_approval = any(
+                self.user_repository.find_by_id(approver_id) and
+                UserRole.SECURITY_ENGINEER in self.user_repository.find_by_id(approver_id).roles
+                for approver_id in code_review.approvers
+            )
+            if not has_security_approval:
+                raise ValueError("Security approval is required but was not obtained")
+
+        # If QA approval was required, verify it was obtained
+        if code_review.qa_approval_required:
+            has_qa_approval = any(
+                self.user_repository.find_by_id(approver_id) and
+                UserRole.QA_ENGINEER in self.user_repository.find_by_id(approver_id).roles
+                for approver_id in code_review.approvers
+            )
+            if not has_qa_approval:
+                raise ValueError("QA approval is required but was not obtained")
         
         # Update the code review status to merged
         merged_code_review = code_review.merge()
@@ -105,8 +128,8 @@ class MergeCodeReviewUseCaseImpl:
             requester_id=code_review.requester.id,
             created_at=code_review.created_at,
             updated_at=code_review.updated_at,
-            status=ReviewStatusDTO(code_review.status.value),
-            priority=ReviewPriorityDTO(code_review.priority.value),
+            status=ReviewStatusDTO[code_review.status.name],
+            priority=ReviewPriorityDTO[code_review.priority.name],
             reviewers=list(code_review.reviewers),
             approvers=list(code_review.approvers),
             rejectors=list(code_review.rejectors),

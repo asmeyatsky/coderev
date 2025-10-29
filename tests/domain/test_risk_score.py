@@ -7,7 +7,7 @@ Validating business rules, invariants, and behavior of the RiskScore entity.
 
 import pytest
 from datetime import datetime
-from ecrp.domain.entities.risk_score import RiskScore
+from domain.entities.risk_score import RiskScore
 
 
 class TestRiskScore:
@@ -35,7 +35,7 @@ class TestRiskScore:
         assert risk_score.dataflow_confidence_score == 40.0
         assert risk_score.test_coverage_delta_score == 10.0
         assert risk_score.overall_score == pytest.approx(32.0)  # 50*.2 + 30*.3 + 20*.2 + 40*.2 + 10*.1
-        assert risk_score.risk_level == "Low"
+        assert risk_score.risk_level == "Medium"  # 32 falls in range [20, 40)
     
     def test_risk_score_creation_fails_with_invalid_score(self):
         """Test that risk score creation fails with invalid score"""
@@ -109,7 +109,7 @@ class TestRiskScore:
         assert updated_risk_score.code_complexity_score == 80.0  # Updated value
         assert updated_risk_score.security_impact_score == 70.0  # Updated value
         assert original_risk_score is not updated_risk_score  # Different instances
-        assert updated_risk_score.overall_score == pytest.approx(59.0)  # New overall score
+        assert updated_risk_score.overall_score == pytest.approx(50.0)  # 80*.2 + 70*.3 + 20*.2 + 40*.2 + 10*.1 = 50
     
     def test_needs_security_review_returns_true_for_high_security_score(self):
         """Test that needs_security_review returns True for high security score"""
@@ -136,18 +136,19 @@ class TestRiskScore:
         risk_score = RiskScore(
             id="risk-123",
             code_review_id="review-123",
-            code_complexity_score=90.0,
+            code_complexity_score=100.0,
             security_impact_score=20.0,
-            critical_files_score=80.0,
-            dataflow_confidence_score=60.0,
-            test_coverage_delta_score=30.0
+            critical_files_score=100.0,
+            dataflow_confidence_score=100.0,
+            test_coverage_delta_score=80.0
         )
-        
+        # Overall: 100*0.2 + 20*0.3 + 100*0.2 + 100*0.2 + 80*0.1 = 20 + 6 + 20 + 20 + 8 = 74
+
         # Act
         needs_security_review = risk_score.needs_security_review()
-        
+
         # Assert
-        assert needs_security_review is True  # High overall score
+        assert needs_security_review is True  # High overall score (74 > 70)
     
     def test_needs_qa_review_returns_true_for_high_test_coverage_delta_score(self):
         """Test that needs_qa_review returns True for high test coverage delta score"""

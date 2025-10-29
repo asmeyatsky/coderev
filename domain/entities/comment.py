@@ -14,7 +14,7 @@ Key Design Decisions:
 4. Content validation happens at construction time
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from typing import Optional
 from datetime import datetime
 from enum import Enum
@@ -43,8 +43,8 @@ class Comment:
     id: str
     content: str
     author_id: str
-    created_at: datetime = datetime.now()
-    updated_at: datetime = datetime.now()
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
     
     # Relationships
     code_review_id: Optional[str] = None
@@ -72,72 +72,20 @@ class Comment:
         """Update comment content, returning a new instance"""
         if not new_content:
             raise ValueError("Comment content cannot be empty")
-        
-        return Comment(
-            id=self.id,
-            content=new_content,
-            author_id=self.author_id,
-            created_at=self.created_at,
-            updated_at=datetime.now(),
-            code_review_id=self.code_review_id,
-            parent_id=self.parent_id,
-            file_path=self.file_path,
-            line_number=self.line_number,
-            comment_type=self.comment_type,
-            is_resolved=self.is_resolved,
-            is_deleted=True
-        )
+
+        return replace(self, content=new_content, updated_at=datetime.now())
     
     def mark_resolved(self) -> 'Comment':
         """Mark the comment as resolved, returning a new instance"""
-        return Comment(
-            id=self.id,
-            content=self.content,
-            author_id=self.author_id,
-            created_at=self.created_at,
-            updated_at=datetime.now(),
-            code_review_id=self.code_review_id,
-            parent_id=self.parent_id,
-            file_path=self.file_path,
-            line_number=self.line_number,
-            comment_type=self.comment_type,
-            is_resolved=True,
-            is_deleted=self.is_deleted
-        )
-    
+        return replace(self, is_resolved=True, updated_at=datetime.now())
+
     def mark_unresolved(self) -> 'Comment':
         """Mark the comment as unresolved, returning a new instance"""
-        return Comment(
-            id=self.id,
-            content=self.content,
-            author_id=self.author_id,
-            created_at=self.created_at,
-            updated_at=datetime.now(),
-            code_review_id=self.code_review_id,
-            parent_id=self.parent_id,
-            file_path=self.file_path,
-            line_number=self.line_number,
-            comment_type=self.comment_type,
-            is_resolved=False,
-            is_deleted=self.is_deleted
-        )
-    
+        return replace(self, is_resolved=False, updated_at=datetime.now())
+
     def delete(self) -> 'Comment':
         """Mark the comment as deleted, returning a new instance"""
-        return Comment(
-            id=self.id,
-            content=self.content,
-            author_id=self.author_id,
-            created_at=self.created_at,
-            updated_at=datetime.now(),
-            code_review_id=self.code_review_id,
-            parent_id=self.parent_id,
-            file_path=self.file_path,
-            line_number=self.line_number,
-            comment_type=self.comment_type,
-            is_resolved=self.is_resolved,
-            is_deleted=True
-        )
+        return replace(self, is_deleted=True, updated_at=datetime.now())
     
     def is_reply(self) -> bool:
         """Check if this comment is a reply to another comment"""

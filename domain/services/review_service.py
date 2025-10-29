@@ -15,9 +15,9 @@ Key Design Decisions:
 """
 
 from typing import List, Optional, Set
-from datetime import datetime
+from datetime import datetime, timedelta
 from ..entities.user import User, UserRole
-from ..entities.code_review import CodeReview, ReviewStatus
+from ..entities.code_review import CodeReview, ReviewStatus, ReviewPriority
 from ..entities.comment import Comment
 from ..entities.risk_score import RiskScore
 
@@ -136,9 +136,9 @@ class ReviewDomainService:
             time_estimate *= 2  # Double the time for high-risk reviews
         
         # Adjust for priority
-        if code_review.priority == "high":
+        if code_review.priority == ReviewPriority.HIGH:
             time_estimate = int(time_estimate * 0.75)  # 25% less time for high priority (faster review)
-        elif code_review.priority == "critical":
+        elif code_review.priority == ReviewPriority.CRITICAL:
             time_estimate = int(time_estimate * 0.5)   # 50% less time for critical (urgent review)
         
         return time_estimate
@@ -159,7 +159,7 @@ class ReviewDomainService:
         
         is_aged = time_since_creation.total_seconds() / 60 > estimated_time_threshold
         is_high_risk = code_review.risk_score and code_review.risk_score > 70
-        is_urgent_priority = code_review.priority in ["high", "critical"]
+        is_urgent_priority = code_review.priority in [ReviewPriority.HIGH, ReviewPriority.CRITICAL]
         is_not_approved = code_review.status not in [ReviewStatus.APPROVED, ReviewStatus.MERGED]
         
         return is_aged and (is_high_risk or is_urgent_priority) and is_not_approved
@@ -170,18 +170,18 @@ class ReviewDomainService:
         """
         # Base SLA is 4 hours for normal reviews
         base_sla_hours = 4
-        
+
         # Adjust based on priority
-        if code_review.priority == "high":
+        if code_review.priority == ReviewPriority.HIGH:
             base_sla_hours = 2
-        elif code_review.priority == "critical":
+        elif code_review.priority == ReviewPriority.CRITICAL:
             base_sla_hours = 1
-        
+
         # Adjust based on risk
         if code_review.risk_score and code_review.risk_score > 80:
             base_sla_hours *= 2  # High-risk reviews get more time
-        
-        return code_review.created_at + datetime.timedelta(hours=base_sla_hours)
+
+        return code_review.created_at + timedelta(hours=base_sla_hours)
     
     def is_review_overdue(self, code_review: CodeReview) -> bool:
         """

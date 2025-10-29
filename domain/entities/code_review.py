@@ -14,7 +14,7 @@ Key Design Decisions:
 4. All state changes happen through domain methods that maintain invariants
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import List, Optional, Set
 from datetime import datetime
 from enum import Enum
@@ -84,7 +84,14 @@ class CodeReview:
     files_changed: int = 0
     additions: int = 0
     deletions: int = 0
-    
+
+    # SLA tracking
+    sla_hours_limit: int = 48  # Default: 48 hours for standard reviews
+    sla_deadline: Optional[datetime] = None  # Calculated deadline for completion
+    is_escalated: bool = False
+    escalation_level: int = 0  # 0 = none, 1+ = escalation count
+    escalation_notified_at: Optional[datetime] = None  # When escalation was last notified
+
     # Ephemeral environment
     ephemeral_environment_url: Optional[str] = None
     
@@ -177,16 +184,14 @@ class CodeReview:
         # Basic conditions
         if self.status != ReviewStatus.APPROVED:
             return False
-        
-        # Check if specific approvals are required
-        if self.security_approval_required and not any("security" in role.value for role in self.requester.roles):
-            return False  # Need explicit security approval
-        
-        if self.qa_approval_required and not any("qa" in role.value for role in self.requester.roles):
-            return False  # Need explicit QA approval
-        
+
         # Check if we have enough approvals
-        return self.current_approvals >= self.required_approvals
+        if self.current_approvals < self.required_approvals:
+            return False
+
+        # Note: Security and QA approval requirements should be checked at the use case layer
+        # where we have access to the approver user objects and can verify their roles
+        return True
     
     def merge(self) -> 'CodeReview':
         """Mark the review as merged if all requirements are met"""
@@ -206,119 +211,25 @@ class CodeReview:
     
     def update_stats(self, files_changed: int, additions: int, deletions: int) -> 'CodeReview':
         """Update statistics about the changes"""
-        return CodeReview(
-            id=self.id,
-            title=self.title,
-            description=self.description,
-            source_branch=self.source_branch,
-            target_branch=self.target_branch,
-            requester=self.requester,
-            created_at=self.created_at,
-            updated_at=datetime.now(),
-            status=self.status,
-            priority=self.priority,
-            reviewers=self.reviewers,
-            approvers=self.approvers,
-            rejectors=self.rejectors,
-            required_approvals=self.required_approvals,
-            current_approvals=self.current_approvals,
-            risk_score=self.risk_score,
-            security_approval_required=self.security_approval_required,
-            qa_approval_required=self.qa_approval_required,
-            labels=self.labels,
-            comments_count=self.comments_count,
+        return replace(
+            self,
             files_changed=files_changed,
             additions=additions,
             deletions=deletions,
-            ephemeral_environment_url=self.ephemeral_environment_url
+            updated_at=datetime.now()
         )
     
     def set_risk_score(self, score: float) -> 'CodeReview':
         """Set the AI-calculated risk score"""
-        return CodeReview(
-            id=self.id,
-            title=self.title,
-            description=self.description,
-            source_branch=self.source_branch,
-            target_branch=self.target_branch,
-            requester=self.requester,
-            created_at=self.created_at,
-            updated_at=datetime.now(),
-            status=self.status,
-            priority=self.priority,
-            reviewers=self.reviewers,
-            approvers=self.approvers,
-            rejectors=self.rejectors,
-            required_approvals=self.required_approvals,
-            current_approvals=self.current_approvals,
-            risk_score=score,
-            security_approval_required=self.security_approval_required,
-            qa_approval_required=self.qa_approval_required,
-            labels=self.labels,
-            comments_count=self.comments_count,
-            files_changed=self.files_changed,
-            additions=self.additions,
-            deletions=self.deletions,
-            ephemeral_environment_url=self.ephemeral_environment_url
-        )
+        return replace(self, risk_score=score, updated_at=datetime.now())
     
     def set_ephemeral_environment_url(self, url: str) -> 'CodeReview':
         """Set the URL for the ephemeral review environment"""
-        return CodeReview(
-            id=self.id,
-            title=self.title,
-            description=self.description,
-            source_branch=self.source_branch,
-            target_branch=self.target_branch,
-            requester=self.requester,
-            created_at=self.created_at,
-            updated_at=datetime.now(),
-            status=self.status,
-            priority=self.priority,
-            reviewers=self.reviewers,
-            approvers=self.approvers,
-            rejectors=self.rejectors,
-            required_approvals=self.required_approvals,
-            current_approvals=self.current_approvals,
-            risk_score=self.risk_score,
-            security_approval_required=self.security_approval_required,
-            qa_approval_required=self.qa_approval_required,
-            labels=self.labels,
-            comments_count=self.comments_count,
-            files_changed=self.files_changed,
-            additions=self.additions,
-            deletions=self.deletions,
-            ephemeral_environment_url=url
-        )
+        return replace(self, ephemeral_environment_url=url, updated_at=datetime.now())
     
     def _update_reviewers(self, reviewers: Set[str]) -> 'CodeReview':
         """Helper method to update reviewers and return new instance"""
-        return CodeReview(
-            id=self.id,
-            title=self.title,
-            description=self.description,
-            source_branch=self.source_branch,
-            target_branch=self.target_branch,
-            requester=self.requester,
-            created_at=self.created_at,
-            updated_at=datetime.now(),
-            status=self.status,
-            priority=self.priority,
-            reviewers=reviewers,
-            approvers=self.approvers,
-            rejectors=self.rejectors,
-            required_approvals=self.required_approvals,
-            current_approvals=self.current_approvals,
-            risk_score=self.risk_score,
-            security_approval_required=self.security_approval_required,
-            qa_approval_required=self.qa_approval_required,
-            labels=self.labels,
-            comments_count=self.comments_count,
-            files_changed=self.files_changed,
-            additions=self.additions,
-            deletions=self.deletions,
-            ephemeral_environment_url=self.ephemeral_environment_url
-        )
+        return replace(self, reviewers=reviewers, updated_at=datetime.now())
     
     def _update_approvals(
         self,
@@ -328,87 +239,61 @@ class CodeReview:
         status: ReviewStatus
     ) -> 'CodeReview':
         """Helper method to update approval information and return new instance"""
-        return CodeReview(
-            id=self.id,
-            title=self.title,
-            description=self.description,
-            source_branch=self.source_branch,
-            target_branch=self.target_branch,
-            requester=self.requester,
-            created_at=self.created_at,
-            updated_at=datetime.now(),
-            status=status,
-            priority=self.priority,
-            reviewers=self.reviewers,
+        return replace(
+            self,
             approvers=approvers,
             rejectors=rejectors,
-            required_approvals=self.required_approvals,
             current_approvals=current_approvals,
-            risk_score=self.risk_score,
-            security_approval_required=self.security_approval_required,
-            qa_approval_required=self.qa_approval_required,
-            labels=self.labels,
-            comments_count=self.comments_count,
-            files_changed=self.files_changed,
-            additions=self.additions,
-            deletions=self.deletions,
-            ephemeral_environment_url=self.ephemeral_environment_url
+            status=status,
+            updated_at=datetime.now()
         )
     
     def _update_status(self, status: ReviewStatus) -> 'CodeReview':
         """Helper method to update status and return new instance"""
-        return CodeReview(
-            id=self.id,
-            title=self.title,
-            description=self.description,
-            source_branch=self.source_branch,
-            target_branch=self.target_branch,
-            requester=self.requester,
-            created_at=self.created_at,
-            updated_at=datetime.now(),
-            status=status,
-            priority=self.priority,
-            reviewers=self.reviewers,
-            approvers=self.approvers,
-            rejectors=self.rejectors,
-            required_approvals=self.required_approvals,
-            current_approvals=self.current_approvals,
-            risk_score=self.risk_score,
-            security_approval_required=self.security_approval_required,
-            qa_approval_required=self.qa_approval_required,
-            labels=self.labels,
-            comments_count=self.comments_count,
-            files_changed=self.files_changed,
-            additions=self.additions,
-            deletions=self.deletions,
-            ephemeral_environment_url=self.ephemeral_environment_url
-        )
+        return replace(self, status=status, updated_at=datetime.now())
     
     def _update_comments_count(self, comments_count: int) -> 'CodeReview':
         """Helper method to update comment count and return new instance"""
-        return CodeReview(
-            id=self.id,
-            title=self.title,
-            description=self.description,
-            source_branch=self.source_branch,
-            target_branch=self.target_branch,
-            requester=self.requester,
-            created_at=self.created_at,
-            updated_at=datetime.now(),
-            status=self.status,
-            priority=self.priority,
-            reviewers=self.reviewers,
-            approvers=self.approvers,
-            rejectors=self.rejectors,
-            required_approvals=self.required_approvals,
-            current_approvals=self.current_approvals,
-            risk_score=self.risk_score,
-            security_approval_required=self.security_approval_required,
-            qa_approval_required=self.qa_approval_required,
-            labels=self.labels,
-            comments_count=comments_count,
-            files_changed=self.files_changed,
-            additions=self.additions,
-            deletions=self.deletions,
-            ephemeral_environment_url=self.ephemeral_environment_url
+        return replace(self, comments_count=comments_count, updated_at=datetime.now())
+
+    def set_sla_deadline(self, hours_limit: int) -> 'CodeReview':
+        """Set the SLA deadline based on hours from now"""
+        from datetime import timedelta
+        deadline = datetime.now() + timedelta(hours=hours_limit)
+        return replace(
+            self,
+            sla_hours_limit=hours_limit,
+            sla_deadline=deadline,
+            updated_at=datetime.now()
         )
+
+    def is_overdue(self) -> bool:
+        """Check if the review is past its SLA deadline"""
+        if self.sla_deadline is None:
+            return False
+        return datetime.now() > self.sla_deadline
+
+    def escalate(self, escalation_level: int = None) -> 'CodeReview':
+        """Escalate the review due to SLA breach or other concerns"""
+        new_level = (escalation_level or self.escalation_level) + 1
+        return replace(
+            self,
+            is_escalated=True,
+            escalation_level=new_level,
+            escalation_notified_at=datetime.now(),
+            updated_at=datetime.now()
+        )
+
+    def get_hours_remaining(self) -> float:
+        """Get hours remaining until SLA deadline"""
+        if self.sla_deadline is None:
+            return float('inf')
+        from datetime import timedelta
+        remaining = self.sla_deadline - datetime.now()
+        return remaining.total_seconds() / 3600
+
+    def needs_escalation(self, hours_threshold: int = 4) -> bool:
+        """Check if review needs escalation based on remaining time"""
+        if self.status in [ReviewStatus.MERGED, ReviewStatus.CLOSED, ReviewStatus.REJECTED]:
+            return False  # Already completed
+        return self.get_hours_remaining() <= hours_threshold

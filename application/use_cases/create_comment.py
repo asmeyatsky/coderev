@@ -18,11 +18,12 @@ from abc import ABC, abstractmethod
 from typing import Protocol, Optional
 from datetime import datetime
 
-from ..dtos.dtos import CommentDTO
-from ...domain.ports.repository_ports import CommentRepositoryPort, CodeReviewRepositoryPort, UserRepositoryPort
-from ...domain.entities.comment import Comment, CommentType
-from ...domain.entities.user import User
-from ...domain.entities.code_review import CodeReview
+# Using absolute imports since the sys.path is modified in the presentation layer
+from domain.ports.repository_ports import CommentRepositoryPort, CodeReviewRepositoryPort, UserRepositoryPort
+from domain.entities.comment import Comment, CommentType
+from domain.entities.user import User
+from domain.entities.code_review import CodeReview
+from application.dtos.dtos import CommentDTO
 
 
 class CreateCommentUseCase(Protocol):

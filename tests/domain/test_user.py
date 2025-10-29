@@ -7,7 +7,7 @@ Validating business rules, invariants, and behavior of the User entity.
 
 import pytest
 from datetime import datetime
-from ecrp.domain.entities.user import User, UserRole
+from domain.entities.user import User, UserRole
 
 
 class TestUser:

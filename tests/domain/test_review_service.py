@@ -6,10 +6,10 @@ Validating business logic and coordination between entities.
 """
 
 import pytest
-from ecrp.domain.entities.user import User, UserRole
-from ecrp.domain.entities.code_review import CodeReview, ReviewStatus, ReviewPriority
-from ecrp.domain.entities.risk_score import RiskScore
-from ecrp.domain.services.review_service import ReviewDomainService
+from domain.entities.user import User, UserRole
+from domain.entities.code_review import CodeReview, ReviewStatus, ReviewPriority
+from domain.entities.risk_score import RiskScore
+from domain.services.review_service import ReviewDomainService
 
 
 class TestReviewDomainService:

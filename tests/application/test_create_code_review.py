@@ -7,10 +7,10 @@ Validating orchestration between domain entities, services, and infrastructure.
 
 import pytest
 from unittest.mock import Mock, MagicMock
-from ecrp.application.use_cases.create_code_review import CreateCodeReviewUseCaseImpl
-from ecrp.domain.entities.user import User, UserRole
-from ecrp.domain.entities.code_review import CodeReview, ReviewStatus
-from ecrp.domain.entities.risk_score import RiskScore
+from application.use_cases.create_code_review import CreateCodeReviewUseCaseImpl
+from domain.entities.user import User, UserRole
+from domain.entities.code_review import CodeReview, ReviewStatus
+from domain.entities.risk_score import RiskScore
 
 
 class TestCreateCodeReviewUseCase:
@@ -48,14 +48,20 @@ class TestCreateCodeReviewUseCase:
         
         # Mock the Git provider service to return a diff
         mock_git_provider_service.get_pull_request_diff.return_value = "sample diff content"
-        
+
         # Mock the environment service to return an environment
         mock_environment = Mock()
         mock_environment.url = "https://example.com/env"
         mock_environment_service.create_environment.return_value = mock_environment
-        
+
         # Mock all users for review service
         mock_user_repository.find_all.return_value = [requester]
+
+        # Mock the review service to return empty required reviewers list
+        mock_review_service.calculate_required_reviewers.return_value = []
+
+        # Mock the repository save method to return the code review passed to it
+        mock_code_review_repository.save.side_effect = lambda code_review: code_review
         
         use_case = CreateCodeReviewUseCaseImpl(
             code_review_repository=mock_code_review_repository,

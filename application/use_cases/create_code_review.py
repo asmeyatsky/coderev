@@ -18,16 +18,20 @@ from abc import ABC, abstractmethod
 from typing import Protocol
 from datetime import datetime
 
-from ..dtos.dtos import CodeReviewDTO, UserDTO
-from ...domain.ports.repository_ports import CodeReviewRepositoryPort, UserRepositoryPort
-from ...domain.ports.external_service_ports import (
+# Using absolute imports since the sys.path is modified in the presentation layer
+from domain.ports.repository_ports import CodeReviewRepositoryPort, UserRepositoryPort
+from domain.ports.external_service_ports import (
     RiskAnalysisServicePort,
     EnvironmentProvisioningServicePort,
     GitProviderServicePort
 )
-from ...domain.entities.code_review import CodeReview, ReviewStatus, ReviewPriority
-from ...domain.entities.user import User
-from ...domain.services.review_service import ReviewDomainService
+from domain.entities.code_review import CodeReview, ReviewStatus, ReviewPriority
+from domain.entities.user import User
+from domain.services.review_service import ReviewDomainService
+from application.dtos.dtos import CodeReviewDTO, UserDTO, ReviewStatusDTO, ReviewPriorityDTO
+from infrastructure.logging_config import get_logger, log_operation
+
+logger = get_logger(__name__)
 
 
 class CreateCodeReviewUseCase(Protocol):
@@ -73,10 +77,19 @@ class CreateCodeReviewUseCaseImpl:
         requester_id: str
     ) -> CodeReviewDTO:
         """Execute the use case to create a new code review"""
-        
+        logger.info(
+            f"Creating code review: {title} from {source_branch} to {target_branch}",
+            extra={"extra_data": {
+                "requester_id": requester_id,
+                "source_branch": source_branch,
+                "target_branch": target_branch
+            }}
+        )
+
         # Validate requester exists
         requester = self.user_repository.find_by_id(requester_id)
         if not requester:
+            logger.error(f"Requester not found: {requester_id}")
             raise ValueError(f"Requester with ID {requester_id} not found")
         
         # Create the initial code review entity
@@ -173,6 +186,8 @@ class CreateCodeReviewUseCaseImpl:
             code_review = code_review.assign_reviewer(reviewer_id)
         
         # Update the number of required approvals based on the number of assigned reviewers
+        # Ensure at least 1 approval is required
+        required_approvals = max(1, len(required_reviewers))
         code_review = CodeReview(
             id=code_review.id,
             title=code_review.title,
@@ -187,7 +202,7 @@ class CreateCodeReviewUseCaseImpl:
             reviewers=code_review.reviewers,
             approvers=code_review.approvers,
             rejectors=code_review.rejectors,
-            required_approvals=len(required_reviewers),
+            required_approvals=required_approvals,
             current_approvals=code_review.current_approvals,
             risk_score=code_review.risk_score,
             security_approval_required=code_review.security_approval_required,
@@ -233,8 +248,8 @@ class CreateCodeReviewUseCaseImpl:
             requester_id=code_review.requester.id,
             created_at=code_review.created_at,
             updated_at=code_review.updated_at,
-            status=ReviewStatusDTO(code_review.status.value),
-            priority=ReviewPriorityDTO(code_review.priority.value),
+            status=ReviewStatusDTO[code_review.status.name],
+            priority=ReviewPriorityDTO[code_review.priority.name],
             reviewers=list(code_review.reviewers),
             approvers=list(code_review.approvers),
             rejectors=list(code_review.rejectors),

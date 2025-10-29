@@ -6,12 +6,12 @@ Validating that repositories correctly implement the repository port interfaces.
 """
 
 import pytest
-from ecrp.infrastructure.repositories.in_memory_repositories import (
+from infrastructure.repositories.in_memory_repositories import (
     InMemoryUserRepository,
     InMemoryCodeReviewRepository
 )
-from ecrp.domain.entities.user import User
-from ecrp.domain.entities.code_review import CodeReview
+from domain.entities.user import User
+from domain.entities.code_review import CodeReview
 
 
 class TestInMemoryUserRepository:
